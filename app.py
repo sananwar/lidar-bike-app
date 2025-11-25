@@ -1,4 +1,5 @@
 import streamlit as st
+import pandas as pd
 
 # ---------------------------------------------------
 # Pagina-instellingen
@@ -9,17 +10,19 @@ st.set_page_config(
 )
 
 # ---------------------------------------------------
-# CUSTOM CSS (iOS look + grotere UI + toggles)
+# CUSTOM CSS (iOS look + grotere UI + mobiel)
 # ---------------------------------------------------
 st.markdown(
     """
     <style>
 
+    /* Basis typografie */
     html, body, [class*="css"]  {
         font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
         font-size: 18px;
     }
 
+    /* Content-breedte en padding */
     main.block-container {
         padding-top: 1rem;
         padding-left: 1.5rem;
@@ -27,6 +30,7 @@ st.markdown(
         max-width: 1200px;
     }
 
+    /* Titels */
     h1 {
         font-size: 2.2rem;
         font-weight: 700;
@@ -47,7 +51,7 @@ st.markdown(
         color: #111111 !important;
     }
 
-    /* Buttons (zoals in logboek, systeemstatus) */
+    /* Buttons (bv. in Systeemstatus / Logboek) */
     .stButton > button {
         border-radius: 14px;
         padding: 0.9rem 1.5rem;
@@ -64,7 +68,7 @@ st.markdown(
         box-shadow: 0 2px 6px rgba(0,0,0,0.08);
     }
 
-    /* Sliders */
+    /* Slider-labels */
     .row-widget.stSlider label {
         font-size: 18px !important;
         margin-bottom: 0.4rem;
@@ -75,7 +79,7 @@ st.markdown(
         font-size: 18px !important;
     }
 
-    /* Toggle switches groter maken (voor vingers) */
+    /* Toggle switches groter (voor vingers) */
     [data-testid="stToggle"] {
         margin-bottom: 0.8rem;
     }
@@ -93,13 +97,39 @@ st.markdown(
         border-radius: 999px;
     }
 
-    /* Route / situatieschets kaartje */
+    /* Kaart / situatieschets kaartje (als je later weer een card wilt) */
     .route-card {
         padding: 1rem 1.2rem;
         border-radius: 18px;
         background: #FFFFFF;
         box-shadow: 0 8px 20px rgba(0,0,0,0.04);
         border: 1px solid #E5E5EA;
+    }
+
+    /* --- MOBIELE LAYOUT AANPASSINGEN --- */
+    @media (max-width: 900px) {
+        main.block-container {
+            padding-left: 0.5rem;
+            padding-right: 0.5rem;
+            padding-top: 0.5rem;
+            max-width: 100%;
+        }
+
+        h1 {
+            font-size: 1.6rem;
+        }
+
+        /* Kolommen onder elkaar i.p.v. naast elkaar */
+        [data-testid="column"] {
+            width: 100% !important;
+            flex: none !important;
+            margin-bottom: 1.2rem;
+        }
+
+        /* Toggles iets kleiner op hele smalle schermen */
+        [data-testid="stToggle"] div[role="switch"] {
+            transform: scale(1.1);
+        }
     }
 
     </style>
@@ -159,7 +189,7 @@ if pagina == "Hoofdscherm":
     st.markdown("---")
 
     # -------- Bandenspanning --------
-    st.subheader("🛞 Bandenspanning")
+    st.subheader("🛞 Bandenspanning (indicatief)")
     band_col1, band_col2 = st.columns(2)
 
     with band_col1:
@@ -172,15 +202,22 @@ if pagina == "Hoofdscherm":
 
     st.markdown("---")
 
+    # -------- Route / situatieschets met kaart --------
     st.subheader("📍 Route / situatieschets")
-    st.markdown(
-        """
-        <div class="route-card">
-          Hier zou je later een kaart, radarview of abstracte visualisatie kunnen tonen.
-        </div>
-        """,
-        unsafe_allow_html=True
+
+    st.write("Mock-locatie van de fietser (voorbeeld):")
+
+    # Voorbeeldlocatie – pas de coordinaten gerust aan
+    locatie_data = pd.DataFrame(
+        [
+            {
+                "lat": 52.5180,   # voorbeeld (bijv. omgeving Lelystad)
+                "lon": 5.4714,
+            }
+        ]
     )
+
+    st.map(locatie_data)
 
 # ---------------------------------------------------
 # PAGINA: Systeemstatus
@@ -190,7 +227,7 @@ elif pagina == "Systeemstatus":
 
     st.header("LiDAR-unit")
     st.write("• Hardware status: **OK**")
-    st.write("• Temperatuur: 42°C")
+    st.write("• Temperatuur: 42°C (mock)")
     st.write("• Firmware-versie: v0.1-demo")
 
     st.header("Communicatie met lantaarnpalen")
@@ -233,10 +270,10 @@ elif pagina == "Instellingen":
     st.markdown("---")
     st.subheader("Taal & interface")
     st.selectbox("Taal", ["Nederlands", "Engels"], key="taal")
-    st.checkbox("Donkere modus", value=True, key="darkmode")
+    st.checkbox("Donkere modus", value=True, key="darkmode_mock")
 
     st.markdown("---")
-    st.subheader("Privacy")
+    st.subheader("Privacy (mock)")
     st.checkbox("Deel geanonimiseerde gegevens met gemeente", value=False, key="privacy")
 
 # ---------------------------------------------------
