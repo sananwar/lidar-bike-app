@@ -14,6 +14,7 @@ ORS_API_KEY = "eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6ImI2MWM1ZTFmY
 st.set_page_config(
     page_title="LiDAR Bike Safety",
     layout="wide",
+    initial_sidebar_state="expanded",
 )
 
 # ---------------------------------------------------
@@ -57,15 +58,16 @@ st.markdown(
         padding-left: 0;
     }}
 
-    /* Verberg Streamlit footer & header */
-    header[data-testid="stHeader"] {{ display: none; }}
+    [data-testid="stSidebar"] {{
+        min-width: 260px;
+    }}
+
+    /* Verberg alleen de footer (header nodig voor sidebar-knop) */
     footer {{ visibility: hidden; }}
 
-    /* Mobiel fullscreen: sidebar verbergen */
+
+    /* Mobiel: iets minder padding, maar sidebar blijft zichtbaar */
     @media (max-width: 900px) {{
-        [data-testid="stSidebar"] {{
-            display: none;
-        }}
         main.block-container {{
             padding: 0.7rem;
             max-width: 100%;
