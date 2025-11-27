@@ -2,12 +2,11 @@ import streamlit as st
 import pandas as pd
 import requests
 import streamlit.components.v1 as components
-from streamlit_js_eval import streamlit_js_eval
 
 # ---------------------------------------------------
 # ORS API KEY (VUL HIER JE EIGEN KEY IN!)
 # ---------------------------------------------------
-ORS_API_KEY = "eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6ImI2MWM1ZTFmYmQ3MTQ5NmRiZjY3OThlZmZmN2VjOTViIiwiaCI6Im11cm11cjY0In0="   # <----- DIT AANPASSEN
+ORS_API_KEY = "eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6ImI2MWM1ZTFmYmQ3MTQ5NmRiZjY3OThlZmZmN2VjOTViIiwiaCI6Im11cm11cjY0In0="   # <----- vervang door je nieuwe key
 
 # ---------------------------------------------------
 # Pagina instellingen
@@ -113,34 +112,35 @@ st.sidebar.write("⚡ Ondersteuning: **Normaal**")
 st.sidebar.write("🛞 Banden: **OK**")
 
 # ---------------------------------------------------
-# ROUTE FUNCTIE: geocode + echte fietsroute ophalen
+# ROUTE FUNCTIES: geocode + echte fietsroute ophalen
 # ---------------------------------------------------
-def geocode_address(address):
-    """Adres → coördinaten met foutafhandeling"""
-    url = f"https://api.openrouteservice.org/geocode/search"
+def geocode_address(address: str):
+    """Adres → coördinaten met foutafhandeling (lat, lon) of None."""
+    url = "https://api.openrouteservice.org/geocode/search"
     params = {
         "api_key": ORS_API_KEY,
         "text": address
     }
-    
+
     try:
-        r = requests.get(url, params=params).json()
-    except:
+        r = requests.get(url, params=params, timeout=10)
+        data = r.json()
+    except Exception:
         return None
 
     # Check of er resultaten zijn
-    if "features" not in r or len(r["features"]) == 0:
+    if "features" not in data or len(data["features"]) == 0:
         return None
 
     try:
-        coords = r["features"][0]["geometry"]["coordinates"]
+        coords = data["features"][0]["geometry"]["coordinates"]
         return coords[1], coords[0]  # lat, lon
-    except:
+    except Exception:
         return None
 
 
-def get_route(start, end):
-    """Lat/Lon → echte fietsroute polyline met foutcontrole"""
+def get_route(start: tuple, end: tuple):
+    """Lat/Lon → echte fietsroute polyline met foutcontrole. Geeft DataFrame of None."""
     url = "https://api.openrouteservice.org/v2/directions/cycling-regular"
     body = {
         "coordinates": [
@@ -148,24 +148,27 @@ def get_route(start, end):
             [end[1], end[0]]
         ]
     }
-    headers = {"Authorization": ORS_API_KEY, "Content-Type": "application/json"}
+    headers = {
+        "Authorization": ORS_API_KEY,
+        "Content-Type": "application/json"
+    }
 
     try:
-        r = requests.post(url, json=body, headers=headers).json()
-    except:
+        r = requests.post(url, json=body, headers=headers, timeout=10)
+        data = r.json()
+    except Exception:
         return None
 
     # Check of het resultaat OK is
-    if "features" not in r:
+    if "features" not in data:
         return None
 
     try:
-        coords = r["features"][0]["geometry"]["coordinates"]
+        coords = data["features"][0]["geometry"]["coordinates"]
         df = pd.DataFrame([[lat, lon] for lon, lat in coords], columns=["lat", "lon"])
         return df
-    except:
+    except Exception:
         return None
-
 
 # ---------------------------------------------------
 # PAGINA: Hoofdscherm
@@ -218,7 +221,11 @@ if pagina.startswith("🏠"):
 elif pagina.startswith("🗺️"):
     st.title("📍 Route & Navigatie")
 
-    bestemming = st.text_input("Voer een bestemming in:", key="input_bestemming", placeholder="Bijv. Windesheim Zwolle")
+    bestemming = st.text_input(
+        "Voer een bestemming in:",
+        key="input_bestemming",
+        placeholder="Bijv. Windesheim Zwolle"
+    )
 
     if bestemming:
         st.write("🔄 Locatie zoeken…")
@@ -227,23 +234,34 @@ elif pagina.startswith("🗺️"):
         if dest_coords:
             st.success(f"Bestemming gevonden: {bestemming}")
 
-            start_coords = (52.5180, 5.4714)  # Mock huidige locatie
+            # Startpunt: Hogeschool van Amsterdam - Fraijlemaborg (Amsterdam Bijlmer)
+            start_coords = (52.327343, 4.947332)
+
 
             route_df = get_route(start_coords, dest_coords)
 
             if route_df is None:
-                st.error("Kon geen route berekenen (mogelijk buiten fietsnetwerk of API-fout).")
-            else:
-                st.write("🗺️ Echte fietsroute:")
-                st.map(route_df)
+                st.warning(
+                    "Kon geen route berekenen (mogelijk buiten fietsnetwerk of API-fout). "
+                    "Toon een rechte lijn tussen start en bestemming als benadering."
+                )
+                # Fallback: rechte lijn tussen start en bestemming
+                route_df = pd.DataFrame(
+                    [
+                        {"lat": start_coords[0], "lon": start_coords[1]},
+                        {"lat": dest_coords[0], "lon": dest_coords[1]},
+                    ]
+                )
 
+            st.write("🗺️ Routeweergave:")
+            st.map(route_df)
 
         else:
             st.error("Kon bestemming niet vinden.")
     else:
         st.info("Voer een bestemming in om de route te berekenen.")
 
-# ----------------------------------------------------
+# ---------------------------------------------------
 # PAGINA: Systeemstatus
 # ---------------------------------------------------
 elif pagina.startswith("📡"):
