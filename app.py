@@ -243,7 +243,7 @@ elif pagina.startswith("🗺️"):
     else:
         st.info("Voer een bestemming in om de route te berekenen.")
 
-# ---------------------------------------------------
+# ----------------------------------------------------
 # PAGINA: Systeemstatus
 # ---------------------------------------------------
 elif pagina.startswith("📡"):
