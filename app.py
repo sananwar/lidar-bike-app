@@ -20,6 +20,15 @@ st.markdown(
     html, body, [class*="css"]  {
         font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
         font-size: 18px;
+        background-color: #F2F2F7;
+    }
+
+    /* Verberg Streamlit header & footer voor app-gevoel */
+    header[data-testid="stHeader"] {
+        display: none;
+    }
+    footer {
+        visibility: hidden;
     }
 
     /* Content-breedte en padding */
@@ -97,7 +106,7 @@ st.markdown(
         border-radius: 999px;
     }
 
-    /* Kaart / situatieschets kaartje (als je later weer een card wilt) */
+    /* Kaart / kaartje (optioneel) */
     .route-card {
         padding: 1rem 1.2rem;
         border-radius: 18px;
@@ -189,7 +198,7 @@ if pagina == "Hoofdscherm":
     st.markdown("---")
 
     # -------- Bandenspanning --------
-    st.subheader("🛞 Bandenspanning (indicatief)")
+    st.subheader("🛞 Bandenspanning")
     band_col1, band_col2 = st.columns(2)
 
     with band_col1:
@@ -202,22 +211,36 @@ if pagina == "Hoofdscherm":
 
     st.markdown("---")
 
-    # -------- Route / situatieschets met kaart --------
-    st.subheader("📍 Route / situatieschets")
+    # -------- Route met adres + kaart --------
+    st.subheader("📍 Route")
 
-    st.write("Mock-locatie van de fietser (voorbeeld):")
-
-    # Voorbeeldlocatie – pas de coordinaten gerust aan
-    locatie_data = pd.DataFrame(
-        [
-            {
-                "lat": 52.5180,   # voorbeeld (bijv. omgeving Lelystad)
-                "lon": 5.4714,
-            }
-        ]
+    bestemming = st.text_input(
+        "Voer je bestemming in (adres of plaats)",
+        key="bestemming",
+        placeholder="Bijv. Hogeschool Windesheim, Zwolle"
     )
 
-    st.map(locatie_data)
+    col_route_map, col_route_info = st.columns([2, 1])
+
+    with col_route_map:
+        st.write("Kaartweergave (mock):")
+        # Mock-locatie – eventueel aanpassen aan jouw scenario
+        locatie_data = pd.DataFrame(
+            [
+                {
+                    "lat": 52.5180,   # voorbeeldcoördinaten
+                    "lon": 5.4714,
+                }
+            ]
+        )
+        st.map(locatie_data)
+
+    with col_route_info:
+        st.write("Huidige bestemming:")
+        if bestemming:
+            st.success(bestemming)
+        else:
+            st.info("Nog geen bestemming ingevoerd.")
 
 # ---------------------------------------------------
 # PAGINA: Systeemstatus
