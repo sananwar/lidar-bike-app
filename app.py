@@ -1,145 +1,88 @@
 import streamlit as st
 import pandas as pd
+import requests
+import streamlit.components.v1 as components
+from streamlit_js_eval import streamlit_js_eval
 
 # ---------------------------------------------------
-# Pagina-instellingen
+# ORS API KEY (VUL HIER JE EIGEN KEY IN!)
+# ---------------------------------------------------
+ORS_API_KEY = "eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6ImI2MWM1ZTFmYmQ3MTQ5NmRiZjY3OThlZmZmN2VjOTViIiwiaCI6Im11cm11cjY0In0="   # <----- DIT AANPASSEN
+
+# ---------------------------------------------------
+# Pagina instellingen
 # ---------------------------------------------------
 st.set_page_config(
     page_title="LiDAR Bike Safety",
-    layout="wide"
+    layout="wide",
 )
 
 # ---------------------------------------------------
-# CUSTOM CSS (iOS look + grotere UI + mobiel)
+# Javascript voor haptics (alleen gevaar-knoppen)
+# ---------------------------------------------------
+def vibrate():
+    components.html(
+        """
+        <script>
+        if (navigator.vibrate) { navigator.vibrate(60); }
+        </script>
+        """,
+        height=0,
+        width=0
+    )
+
+# ---------------------------------------------------
+# DARK MODE (iOS-style toggle via session state)
+# ---------------------------------------------------
+if "dark_mode" not in st.session_state:
+    st.session_state.dark_mode = False
+
+# ---------------------------------------------------
+# CUSTOM CSS (iOS layout, smartphone fullscreen)
 # ---------------------------------------------------
 st.markdown(
-    """
+    f"""
     <style>
 
-    /* Basis typografie */
-    html, body, [class*="css"]  {
+    /* Globale iOS look */
+    html, body, [class*="css"] {{
         font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
         font-size: 18px;
-        background-color: #F2F2F7;
-    }
+        background-color: {"#1C1C1E" if st.session_state.dark_mode else "#F2F2F7"};
+        color: {"#FAFAFA" if st.session_state.dark_mode else "#1C1C1E"};
+    }}
 
-    /* Verberg Streamlit header & footer voor app-gevoel */
-    header[data-testid="stHeader"] {
-        display: none;
-    }
-    footer {
-        visibility: hidden;
-    }
+    /* Sidebar icons */
+    [data-testid="stSidebar"] ul {{
+        list-style-type: none;
+        padding-left: 0;
+    }}
 
-    /* Content-breedte en padding */
-    main.block-container {
-        padding-top: 1rem;
-        padding-left: 1.5rem;
-        padding-right: 1.5rem;
-        max-width: 1200px;
-    }
+    /* Verberg Streamlit footer & header */
+    header[data-testid="stHeader"] {{ display: none; }}
+    footer {{ visibility: hidden; }}
 
-    /* Titels */
-    h1 {
-        font-size: 2.2rem;
-        font-weight: 700;
-    }
-    h2, h3 {
-        font-weight: 600;
-    }
-
-    /* Sidebar */
-    [data-testid="stSidebar"] {
-        min-width: 260px;
-        background: #F5F5F7;
-        border-right: 1px solid #E5E5EA;
-        color: #111111;
-    }
-    [data-testid="stSidebar"] * {
-        font-size: 17px !important;
-        color: #111111 !important;
-    }
-
-    /* Buttons (bv. in Systeemstatus / Logboek) */
-    .stButton > button {
-        border-radius: 14px;
-        padding: 0.9rem 1.5rem;
-        font-size: 18px;
-        font-weight: 500;
-        border: none;
-        box-shadow: 0 4px 10px rgba(0,0,0,0.08);
-        cursor: pointer;
-        transition: 0.2s;
-    }
-    .stButton > button:hover {
-        filter: brightness(0.97);
-        transform: translateY(1px);
-        box-shadow: 0 2px 6px rgba(0,0,0,0.08);
-    }
-
-    /* Slider-labels */
-    .row-widget.stSlider label {
-        font-size: 18px !important;
-        margin-bottom: 0.4rem;
-    }
-
-    /* Checkboxes & radios */
-    .stCheckbox label, .stRadio label {
-        font-size: 18px !important;
-    }
-
-    /* Toggle switches groter (voor vingers) */
-    [data-testid="stToggle"] {
-        margin-bottom: 0.8rem;
-    }
-    [data-testid="stToggle"] label {
-        font-size: 18px !important;
-    }
-    [data-testid="stToggle"] div[role="switch"] {
-        transform: scale(1.3);
-        margin-right: 0.6rem;
-    }
-
-    /* Progressbars */
-    .stProgress > div > div {
-        height: 12px;
-        border-radius: 999px;
-    }
-
-    /* Kaart / kaartje (optioneel) */
-    .route-card {
-        padding: 1rem 1.2rem;
-        border-radius: 18px;
-        background: #FFFFFF;
-        box-shadow: 0 8px 20px rgba(0,0,0,0.04);
-        border: 1px solid #E5E5EA;
-    }
-
-    /* --- MOBIELE LAYOUT AANPASSINGEN --- */
-    @media (max-width: 900px) {
-        main.block-container {
-            padding-left: 0.5rem;
-            padding-right: 0.5rem;
-            padding-top: 0.5rem;
+    /* Mobiel fullscreen: sidebar verbergen */
+    @media (max-width: 900px) {{
+        [data-testid="stSidebar"] {{
+            display: none;
+        }}
+        main.block-container {{
+            padding: 0.7rem;
             max-width: 100%;
-        }
+        }}
+    }}
 
-        h1 {
-            font-size: 1.6rem;
-        }
+    /* Big toggles */
+    [data-testid="stToggle"] div[role="switch"] {{
+        transform: scale(1.3);
+        margin-right: .6rem;
+    }}
 
-        /* Kolommen onder elkaar i.p.v. naast elkaar */
-        [data-testid="column"] {
-            width: 100% !important;
-            flex: none !important;
-            margin-bottom: 1.2rem;
-        }
-
-        /* Toggles iets kleiner op hele smalle schermen */
-        [data-testid="stToggle"] div[role="switch"] {
-            transform: scale(1.1);
-        }
-    }
+    h1 {{
+        font-size: 1.9rem;
+        font-weight: 700;
+    }}
 
     </style>
     """,
@@ -147,171 +90,192 @@ st.markdown(
 )
 
 # ---------------------------------------------------
-# SIDEBAR
+# SIDEBAR met ICONS
 # ---------------------------------------------------
-st.sidebar.title("🚲 LiDAR Bike Safety")
+st.sidebar.title("🚲 LiDAR Safety")
 
 pagina = st.sidebar.radio(
     "Navigatie",
-    ["Hoofdscherm", "Systeemstatus", "Instellingen", "Logboek"]
+    [
+        "🏠 Hoofdscherm",
+        "🗺️ Route",
+        "📡 Systeemstatus",
+        "⚙️ Instellingen",
+        "📘 Logboek"
+    ]
 )
 
 st.sidebar.markdown("---")
-st.sidebar.subheader("Systeemstatus (globaal)")
-st.sidebar.write("🔶 LiDAR-unit: **Actief**")
+st.sidebar.subheader("Systeemstatus")
+st.sidebar.write("🔶 LiDAR: **Actief**")
 st.sidebar.write("🛰️ Lantaarnpalen: **Verbonden**")
-st.sidebar.write("⚡ Trapondersteuning: **Normaal**")
-st.sidebar.write("🛞 Bandenspanning: **OK**")
+st.sidebar.write("⚡ Ondersteuning: **Normaal**")
+st.sidebar.write("🛞 Banden: **OK**")
+
+# ---------------------------------------------------
+# ROUTE FUNCTIE: geocode + echte fietsroute ophalen
+# ---------------------------------------------------
+def geocode_address(address):
+    """Adres → coördinaten met foutafhandeling"""
+    url = f"https://api.openrouteservice.org/geocode/search"
+    params = {
+        "api_key": ORS_API_KEY,
+        "text": address
+    }
+    
+    try:
+        r = requests.get(url, params=params).json()
+    except:
+        return None
+
+    # Check of er resultaten zijn
+    if "features" not in r or len(r["features"]) == 0:
+        return None
+
+    try:
+        coords = r["features"][0]["geometry"]["coordinates"]
+        return coords[1], coords[0]  # lat, lon
+    except:
+        return None
+
+
+def get_route(start, end):
+    """Lat/Lon → echte fietsroute polyline met foutcontrole"""
+    url = "https://api.openrouteservice.org/v2/directions/cycling-regular"
+    body = {
+        "coordinates": [
+            [start[1], start[0]],
+            [end[1], end[0]]
+        ]
+    }
+    headers = {"Authorization": ORS_API_KEY, "Content-Type": "application/json"}
+
+    try:
+        r = requests.post(url, json=body, headers=headers).json()
+    except:
+        return None
+
+    # Check of het resultaat OK is
+    if "features" not in r:
+        return None
+
+    try:
+        coords = r["features"][0]["geometry"]["coordinates"]
+        df = pd.DataFrame([[lat, lon] for lon, lat in coords], columns=["lat", "lon"])
+        return df
+    except:
+        return None
+
 
 # ---------------------------------------------------
 # PAGINA: Hoofdscherm
 # ---------------------------------------------------
-if pagina == "Hoofdscherm":
+if pagina.startswith("🏠"):
     st.title("Hoofdscherm – Live weergave")
 
     col1, col2, col3 = st.columns(3)
 
-    # -------- Waarschuwingen --------
     with col1:
         st.subheader("🚨 Waarschuwingen")
 
-        st.toggle("Simuleer obstakel dichtbij", key="obstakel_dichtbij")
-        st.toggle("Simuleer obstakel verderop", key="obstakel_verderop")
-        st.toggle("Simuleer gevaar achter bocht", key="gevaar_bocht")
+        if st.toggle("⚠️ Obstakel dichtbij", key="obstakel_dichtbij"):
+            vibrate()
 
-    # -------- LiDAR & omgeving --------
+        if st.toggle("⚠️ Obstakel verderop", key="obstakel_verderop"):
+            vibrate()
+
+        if st.toggle("❗ Gevaar achter bocht", key="gevaar_bocht"):
+            vibrate()
+
     with col2:
         st.subheader("📡 LiDAR & omgeving")
         st.write("• Scanhoek: 0–25°")
-        st.write("• Scanmodus: Continu")
+        st.write("• Modus: Continu")
         st.write("• Laatste update: 0,2 s geleden")
-        st.slider("Simuleer afstand tot obstakel (m)", 0, 100, 35)
+        st.slider("Afstand obstakel (m)", 0, 100, 35)
 
-    # -------- Trapondersteuning --------
     with col3:
-        st.subheader("⚡ Trapondersteuning (e-bike)")
+        st.subheader("⚡ Trapondersteuning")
 
-        st.toggle("Verminder ondersteuning (gevaar)", key="ondersteuning_verminderd")
-        st.toggle("Schakel ondersteuning uit", key="ondersteuning_uit")
-        st.toggle("Herstel naar normaal", key="ondersteuning_normaal")
+        if st.toggle("❗ Ondersteuning verminderen", key="limit_support"):
+            vibrate()
+
+        st.toggle("🔌 Ondersteuning uitschakelen", key="kill_support")
+        st.toggle("🔄 Herstel normaal", key="restore_support")
 
     st.markdown("---")
 
-    # -------- Bandenspanning --------
     st.subheader("🛞 Bandenspanning")
-    band_col1, band_col2 = st.columns(2)
+    colb1, colb2 = st.columns(2)
+    colb1.write("Voorband: **OK**")
+    colb1.progress(80)
+    colb2.write("Achterband: **OK**")
+    colb2.progress(75)
 
-    with band_col1:
-        st.write("Voorband: **OK**")
-        st.progress(80)
+# ---------------------------------------------------
+# PAGINA: ROUTE (EIGEN)
+# ---------------------------------------------------
+elif pagina.startswith("🗺️"):
+    st.title("📍 Route & Navigatie")
 
-    with band_col2:
-        st.write("Achterband: **OK**")
-        st.progress(75)
+    bestemming = st.text_input("Voer een bestemming in:", key="input_bestemming", placeholder="Bijv. Windesheim Zwolle")
 
-    st.markdown("---")
+    if bestemming:
+        st.write("🔄 Locatie zoeken…")
+        dest_coords = geocode_address(bestemming)
 
-    # -------- Route met adres + kaart --------
-    st.subheader("📍 Route")
+        if dest_coords:
+            st.success(f"Bestemming gevonden: {bestemming}")
 
-    bestemming = st.text_input(
-        "Voer je bestemming in (adres of plaats)",
-        key="bestemming",
-        placeholder="Bijv. Hogeschool Windesheim, Zwolle"
-    )
+            start_coords = (52.5180, 5.4714)  # Mock huidige locatie
 
-    col_route_map, col_route_info = st.columns([2, 1])
+            route_df = get_route(start_coords, dest_coords)
 
-    with col_route_map:
-        st.write("Kaartweergave (mock):")
-        # Mock-locatie – eventueel aanpassen aan jouw scenario
-        locatie_data = pd.DataFrame(
-            [
-                {
-                    "lat": 52.5180,   # voorbeeldcoördinaten
-                    "lon": 5.4714,
-                }
-            ]
-        )
-        st.map(locatie_data)
+            if route_df is None:
+                st.error("Kon geen route berekenen (mogelijk buiten fietsnetwerk of API-fout).")
+            else:
+                st.write("🗺️ Echte fietsroute:")
+                st.map(route_df)
 
-    with col_route_info:
-        st.write("Huidige bestemming:")
-        if bestemming:
-            st.success(bestemming)
+
         else:
-            st.info("Nog geen bestemming ingevoerd.")
+            st.error("Kon bestemming niet vinden.")
+    else:
+        st.info("Voer een bestemming in om de route te berekenen.")
 
 # ---------------------------------------------------
 # PAGINA: Systeemstatus
 # ---------------------------------------------------
-elif pagina == "Systeemstatus":
+elif pagina.startswith("📡"):
     st.title("Systeemstatus & Diagnose")
-
-    st.header("LiDAR-unit")
-    st.write("• Hardware status: **OK**")
-    st.write("• Temperatuur: 42°C (mock)")
-    st.write("• Firmware-versie: v0.1-demo")
-
-    st.header("Communicatie met lantaarnpalen")
-    st.write("• Verbonden: **Ja (demo)**")
-    st.write("• Laatste contact: 2 s geleden")
-    st.write("• Dekking: Stadspark – Zone A")
-
-    st.header("Bandenspanning-sensoren")
-    st.write("• Sensor voorband: verbonden")
-    st.write("• Sensor achterband: verbonden")
-    st.write("• Batterijstatus sensoren: 80%")
-
-    st.markdown("---")
-    st.subheader("Testknoppen (UI-only)")
-    st.button("Herlaad systeemstatus")
-    st.button("Simuleer fout in LiDAR-unit")
-    st.button("Simuleer verlies verbinding lantaarnpalen")
+    st.write("• LiDAR hardware: OK")
+    st.write("• Temperatuur: 42°C")
+    st.write("• Firmware: v0.1-demo")
+    st.write("• Lantaarnpalen: Verbonden")
 
 # ---------------------------------------------------
 # PAGINA: Instellingen
 # ---------------------------------------------------
-elif pagina == "Instellingen":
+elif pagina.startswith("⚙️"):
     st.title("Instellingen")
 
-    st.subheader("Waarschuwingsinstellingen")
-    st.radio(
-        "Wanneer wil je waarschuwingen?",
-        ["Alleen bij direct gevaar", "Normaal", "Vroegtijdig waarschuwen"],
-        key="waarschuwingsniveau"
-    )
+    st.subheader("🌙 Dark mode")
+    if st.toggle("Dark mode inschakelen", value=st.session_state.dark_mode):
+        st.session_state.dark_mode = True
+    else:
+        st.session_state.dark_mode = False
 
-    st.checkbox("Geluid bij waarschuwingen inschakelen", value=True, key="geluid")
-    st.checkbox("Trillen bij waarschuwingen inschakelen", value=True, key="trillen")
-
-    st.markdown("---")
-    st.subheader("Bandenspanning-profielen")
-    st.selectbox("Kies fietsprofiel", ["Stadsfiets", "E-bike", "Racefiets"], key="profiel")
-    st.slider("Gewenste bandenspanning (bar)", 2.0, 6.0, 3.5, 0.1, key="bandenspanning_doel")
-
-    st.markdown("---")
-    st.subheader("Taal & interface")
-    st.selectbox("Taal", ["Nederlands", "Engels"], key="taal")
-    st.checkbox("Donkere modus", value=True, key="darkmode_mock")
-
-    st.markdown("---")
-    st.subheader("Privacy (mock)")
-    st.checkbox("Deel geanonimiseerde gegevens met gemeente", value=False, key="privacy")
+    st.write("🔄 Herlaad de pagina om thema toe te passen.")
 
 # ---------------------------------------------------
 # PAGINA: Logboek
 # ---------------------------------------------------
-elif pagina == "Logboek":
-    st.title("Logboek – Recente waarschuwingen (demo)")
-    st.write("Hier kun je later een tabel of overzicht tonen met recente obstakels en waarschuwingen.")
-
+elif pagina.startswith("📘"):
+    st.title("Logboek – Recente waarschuwingen")
     st.table(
         {
             "Tijd": ["08:15", "08:17", "08:25"],
-            "Type": ["Obstakel dichtbij", "Drukte na bocht", "Lage bandenspanning"],
-            "Status": ["Afgehandeld", "Afgehandeld", "Nog actief"]
+            "Type": ["Obstakel dichtbij", "Gevaar na bocht", "Lage bandenspanning"],
+            "Status": ["Afgehandeld", "Afgehandeld", "Actief"]
         }
     )
-
-    st.button("Vernieuw logboek")
